@@ -14,8 +14,7 @@
 
 #### 集成步骤
 
-*
-复制 [app/libs/cpcl-sdk-android-release.aar](https://raw.githubusercontent.com/lingmoyun/printer-demo-android/master/app/libs/cpcl-sdk-android-release.aar) 到你项目中的 `app/libs/` 目录下
+* 复制 [app/libs/cpcl-sdk-android-release.aar](https://raw.githubusercontent.com/lingmoyun/printer-demo-android/master/app/libs/cpcl-sdk-android-release.aar) 到你项目中的 `app/libs/` 目录下
 
 * 在项目 app 模块下的 `build.gradle` 文件中加入依赖
 
