@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="com.lingmoyun.printerdemo.com.lingmoyun.printerdemo.BluetoothDemoActivity">
+
+    <EditText
+        android:id="@+id/et_bt_mac"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="00:15:83:3E:F8:13" />
+
+    <Button
+        android:id="@+id/btn_bt_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="搜索" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_bt_read_info"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="读取信息" />
+
+        <Button
+            android:id="@+id/btn_bt_test"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="测试打印" />
+    </LinearLayout>
+
+
+    <ListView
+        android:id="@+id/lv_bt_device"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
