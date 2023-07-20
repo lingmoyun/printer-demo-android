@@ -15,6 +15,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.EditText;
@@ -127,13 +128,18 @@ public class BluetoothDemoActivity extends AppCompatActivity {
         mList.clear();
         mAdapter.notifyDataSetChanged();
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            return;
+        // 权限检查
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // api >= 31
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "No Permission: " + Manifest.permission.BLUETOOTH_SCAN, Toast.LENGTH_LONG).show();
+                return;
+            }
         }
         if (bluetoothAdapter.isDiscovering())
             bluetoothAdapter.cancelDiscovery();
         boolean b = bluetoothAdapter.startDiscovery();
-        System.out.println(b);
+        Toast.makeText(this, "Scan: " + b, Toast.LENGTH_LONG).show();
     }
 
     private void testReadInfo() {
@@ -145,8 +151,12 @@ public class BluetoothDemoActivity extends AppCompatActivity {
                 // 连接蓝牙
                 final BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
                 // 权限检查
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    return;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // api >= 31
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(this, "No Permission: " + Manifest.permission.BLUETOOTH_CONNECT, Toast.LENGTH_LONG).show();
+                        return;
+                    }
                 }
                 bluetoothSocket = remoteDevice.createRfcommSocketToServiceRecord(UUID_OTHER_DEVICE);
                 bluetoothSocket.connect();
@@ -211,8 +221,12 @@ public class BluetoothDemoActivity extends AppCompatActivity {
                 // 连接蓝牙
                 final BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
                 // 权限检查
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    return;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // api >= 31
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(this, "No Permission: " + Manifest.permission.BLUETOOTH_CONNECT, Toast.LENGTH_LONG).show();
+                        return;
+                    }
                 }
                 bluetoothSocket = remoteDevice.createRfcommSocketToServiceRecord(UUID_OTHER_DEVICE);
                 bluetoothSocket.connect();
@@ -370,8 +384,12 @@ public class BluetoothDemoActivity extends AppCompatActivity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 // 权限检查
-                if (ActivityCompat.checkSelfPermission(BluetoothDemoActivity.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    return;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // api >= 31
+                    if (ActivityCompat.checkSelfPermission(BluetoothDemoActivity.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(BluetoothDemoActivity.this, "No Permission: " + Manifest.permission.BLUETOOTH_CONNECT, Toast.LENGTH_LONG).show();
+                        return;
+                    }
                 }
                 String name = device.getName();
                 if (name != null && !name.isEmpty()) {
