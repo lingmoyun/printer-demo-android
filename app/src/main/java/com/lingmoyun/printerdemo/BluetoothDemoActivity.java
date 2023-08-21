@@ -147,6 +147,8 @@ public class BluetoothDemoActivity extends AppCompatActivity {
         // 打印机蓝牙MAC地址
         final String address = ((EditText) findViewById(R.id.et_bt_mac)).getText().toString().trim();
         new Thread(() -> {
+            // 如果有已连接的蓝牙，尝试断开。
+            closeBt();
             try {
                 // 连接蓝牙
                 final BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
@@ -258,10 +260,6 @@ public class BluetoothDemoActivity extends AppCompatActivity {
 
 
                 }, "bt-" + address + "-read").start();
-
-                // test miniLZO
-                // MiniLZO.set(MiniLZO.NATIVE); // default mode
-                // MiniLZO.set(MiniLZO.JAVA);
 
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream===");
                 Bitmap imageBB = BitmapFactory.decodeStream(getAssets().open("bb.jpeg"));
