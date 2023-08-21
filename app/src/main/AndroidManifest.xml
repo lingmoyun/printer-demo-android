@@ -22,9 +22,11 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 蓝牙 -->
     <uses-feature
         android:name="android.hardware.bluetooth"
         android:required="true" />
+    <!-- USB -->
     <uses-feature
         android:name="android.hardware.usb.host"
         android:required="true" />
@@ -47,6 +49,7 @@
         </activity>
         <activity android:name=".BluetoothDemoActivity" />
         <activity android:name=".TcpDemoActivity" />
+        <activity android:name=".UsbDemoActivity" />
     </application>
 
 </manifest>

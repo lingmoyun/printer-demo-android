@@ -5,20 +5,18 @@ import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.lingmoyun.instruction.cpcl.CPCL;
 import com.lingmoyun.instruction.cpcl.CpclBuilder;
+import com.lingmoyun.usb.LmyPrinter;
+import com.lingmoyun.usb.PrinterClass;
+import com.lingmoyun.usb.USBService;
 import com.lingmoyun.util.BitmapUtils;
-import com.lingmoyun.util.HexByteUtils;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 
 /**
  * USB Demo
@@ -29,9 +27,7 @@ import java.net.Socket;
 public class UsbDemoActivity extends AppCompatActivity {
     private static final String TAG = "UsbDemoActivity";
 
-    private Socket client;
-    private InputStream inputStream;
-    private OutputStream outputStream;
+    private PrinterClass printerClass;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,21 +40,18 @@ public class UsbDemoActivity extends AppCompatActivity {
     }
 
     private void init() {
-    }
-
-    private void searchPrinter() {
-
+        // 选择打印机型号
+        LmyPrinter lmyPrinter = LmyPrinter.A4G;
+        printerClass = new USBService(this, lmyPrinter.USB_PID, lmyPrinter.USB_VID);
     }
 
     /**
      * 测试打印
      * <p>
-     * 打印机蓝牙支持BLE、SPP两种协议
-     * 由于对接打印机核心在指令(CPCL指令)，所以本demo只使用SPP协议示例
-     * 流程：0.连接蓝牙
+     * 流程：0.连接USB
      * 1.下发打印指令
      * 2.读取打印机回复
-     * 3.断开蓝牙
+     * 3.断开USB
      */
     private void testPrint() {
 //        UsbDevice device;
@@ -68,43 +61,22 @@ public class UsbDemoActivity extends AppCompatActivity {
 
         Toast.makeText(UsbDemoActivity.this, "开始打印", Toast.LENGTH_SHORT).show();
         //((TextView) findViewById(R.id.tv_bt_log)).setText("正在打印。。。");
-        // 打印机蓝牙MAC地址
-        final String ip = ((EditText) findViewById(R.id.et_tcp_ip)).getText().toString().trim();
-        final int port = Integer.parseInt(((EditText) findViewById(R.id.et_tcp_port)).getText().toString().trim());
-        final String address = ip + ":" + port;
         new Thread(() -> {
             try {
-                // 连接TCP
-                client = new Socket(ip, port);
-                inputStream = client.getInputStream();
-                outputStream = client.getOutputStream();
+                // 连接USB
+                boolean openResult = printerClass.open();
+                if (!openResult) {
+                    Toast.makeText(UsbDemoActivity.this, "Failed to open usb", Toast.LENGTH_LONG).show();
+                    return;
+                }
 
-                // 监听蓝牙数据
-                new Thread(() -> {
-                    byte[] buffer = new byte[1024];
-                    try {
-                        while (inputStream != null && outputStream != null) {
-
-                            if (inputStream.available() > 0) {
-                                int len = inputStream.read(buffer);
-                                byte[] data = new byte[len];
-                                System.arraycopy(buffer, 0, data, 0, len);
-                                Log.d(Thread.currentThread().getName(), "testPrint: read data(hex): " + HexByteUtils.byteArrayToHexStr(data));
-                                String gbk = new String(data, "GBK");
-                                Log.d(Thread.currentThread().getName(), "testPrint: read data: " + gbk);
-                                //runOnUiThread(() -> ((TextView) findViewById(R.id.tv_bt_log)).setText(gbk));
-                                break;
-                            }
-                        }
-
-                        // 读到数据，直接断开蓝牙
-                        closeTcp();
-                    } catch (IOException ignored) {
-                    }
-
-
-                }, "usb-" + address + "-read").start();
-
+                // 切换指令集，USB默认TSPL指令集，开机后发送一次即可，重启后失效
+                // 切换TSPL模式
+                //printerClass.write(new byte[]{0x1d, 0x49, 0x60, 0x00});
+                // 切换CPCL模式
+                printerClass.write(new byte[]{0x1d, 0x49, 0x60, 0x01});
+                byte[] changeMode = printerClass.read(128, 5 * 1000);
+                Log.d(TAG, "change mode: " + new String(changeMode));
 
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream===");
                 Bitmap imageBB = BitmapFactory.decodeStream(getAssets().open("bb.jpeg"));
@@ -161,50 +133,20 @@ public class UsbDemoActivity extends AppCompatActivity {
 
                 // write
                 Log.d(TAG, "testPrint: ===outputStream.write start===");
-                outputStream.write(cpcl);
-                outputStream.flush();
+                printerClass.write(cpcl);
                 Log.d(TAG, "testPrint: ===outputStream.write finish===");
                 Log.d(Thread.currentThread().getName(), "testPrint: write data: " + cpcl.length + " bytes.");
+
+                // read 读取打印结果
+                //byte[] printResult = printerClass.read(128, 5 * 1000);
+                //Log.d(TAG, "testPrintResult: " + new String(printResult));
+
+                // 关闭USB
+                printerClass.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }, "usb-" + address + "-connect").start();
+        }, "usb-connect").start();
     }
-
-    /**
-     * 断开连接
-     */
-    private void closeTcp() {
-        try {
-            if (inputStream != null) {
-                inputStream.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            inputStream = null;
-        }
-
-        try {
-            if (outputStream != null) {
-                outputStream.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            outputStream = null;
-        }
-
-        try {
-            if (client != null) {
-                client.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            client = null;
-        }
-    }
-
 
 }
