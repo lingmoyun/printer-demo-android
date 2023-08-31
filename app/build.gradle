@@ -39,5 +39,5 @@ dependencies {
     // CPCL SDK
     implementation(fileTree("libs"))
     // USB
-    implementation 'com.github.felHR85:UsbSerial:6.1.0'
+    implementation 'com.github.mik3y:usb-serial-for-android:3.5.1'
 }

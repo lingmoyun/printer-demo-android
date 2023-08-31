@@ -1,22 +1,31 @@
 package com.lingmoyun.printerdemo;
 
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.lingmoyun.instruction.cpcl.CPCL;
 import com.lingmoyun.instruction.cpcl.CpclBuilder;
-import com.lingmoyun.usb.LmyPrinter;
-import com.lingmoyun.usb.PrinterClass;
-import com.lingmoyun.usb.USBService;
+import com.lingmoyun.usb.LmyUsbPrinter;
 import com.lingmoyun.util.BitmapUtils;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * USB Demo
@@ -26,8 +35,31 @@ import java.io.IOException;
  */
 public class UsbDemoActivity extends AppCompatActivity {
     private static final String TAG = "UsbDemoActivity";
+    private static final Object USB_PERMISSION_LOCK = new Object();
+    // USB权限广播接收器
+    // 参考官方文档：https://developer.android.google.cn/guide/topics/connectivity/usb/host?hl=zh_cn#permission-d
+    private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (LmyUsbPrinter.ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (USB_PERMISSION_LOCK) {
+                    UsbDevice device = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                    // 部分手机拿到的结果是null
 
-    private PrinterClass printerClass;
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        // 部分手机拿到的结果是false
+                        if (device != null) {
+                            //call method to set up device communication
+                        }
+                    } else {
+                        Log.d(TAG, "permission denied for device " + device);
+                    }
+                    USB_PERMISSION_LOCK.notifyAll();
+                }
+            }
+        }
+    };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,13 +68,15 @@ public class UsbDemoActivity extends AppCompatActivity {
 
         findViewById(R.id.btn_usb_test).setOnClickListener(view -> testPrint());
 
-        init();
+        // 注册USB权限广播接收器
+        registerReceiver(usbPermissionReceiver, LmyUsbPrinter.FILTER_USB_PERMISSION);
     }
 
-    private void init() {
-        // 选择打印机型号
-        LmyPrinter lmyPrinter = LmyPrinter.A4G;
-        printerClass = new USBService(this, lmyPrinter.USB_PID, lmyPrinter.USB_VID);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 取消注册USB权限广播接收器
+        unregisterReceiver(usbPermissionReceiver);
     }
 
     /**
@@ -54,29 +88,78 @@ public class UsbDemoActivity extends AppCompatActivity {
      * 3.断开USB
      */
     private void testPrint() {
-//        UsbDevice device;
-//        UsbDeviceConnection usbConnection;
-//
-//        UsbSerialDevice serial = UsbSerialDevice.createUsbSerialDevice(device, usbConnection);
-
-        Toast.makeText(UsbDemoActivity.this, "开始打印", Toast.LENGTH_SHORT).show();
-        //((TextView) findViewById(R.id.tv_bt_log)).setText("正在打印。。。");
         new Thread(() -> {
             try {
-                // 连接USB
-                boolean openResult = printerClass.open();
-                if (!openResult) {
-                    Toast.makeText(UsbDemoActivity.this, "Failed to open usb", Toast.LENGTH_LONG).show();
+                UsbManager usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+
+                // Find all available drivers from attached devices.
+                List<UsbSerialDriver> availableDrivers = LmyUsbPrinter.findDrivers(usbManager);
+                if (availableDrivers.isEmpty()) {
+                    runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "未发现可用USB打印机", Toast.LENGTH_LONG).show());
                     return;
                 }
+
+                // Open a connection to the first available driver.
+                UsbSerialDriver driver = availableDrivers.get(0);
+                if (!usbManager.hasPermission(driver.getDevice())) {
+                    // add UsbManager.requestPermission(driver.getDevice(), ..) handling here
+                    // 参考官方文档：https://developer.android.google.cn/guide/topics/connectivity/usb/host?hl=zh_cn#permission-d
+                    PendingIntent pendingIntent;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, PendingIntent.FLAG_IMMUTABLE);
+                    } else {
+                        pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, 0);
+                    }
+                    usbManager.requestPermission(driver.getDevice(), pendingIntent);
+
+                    // 等待授权结果
+                    synchronized (USB_PERMISSION_LOCK) {
+                        try {
+                            USB_PERMISSION_LOCK.wait(10 * 1000);// 根据实际情况自行调整超时时间
+                        } catch (InterruptedException ignored) {
+                        }
+                        // 授权广播结果在部分手机上返回false，这里使用UsbManager.hasPermission再次校验权限即可
+                        if (!usbManager.hasPermission(driver.getDevice())) {
+                            runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "USB未授权", Toast.LENGTH_LONG).show());
+                            return;
+                        }
+                    }
+                }
+                UsbDeviceConnection connection = usbManager.openDevice(driver.getDevice());
+
+                UsbSerialPort usbSerialPort = driver.getPorts().get(0); // // Most devices have just one usbSerialPort (usbSerialPort 0)
+
+                if (usbSerialPort.isOpen()) {
+                    usbSerialPort.close();
+                }
+                // 连接USB
+                usbSerialPort.open(connection);
+
+                /*
+                SerialInputOutputManager usbIoManager = new SerialInputOutputManager(usbSerialPort, new SerialInputOutputManager.Listener() {
+                    @Override
+                    public void onNewData(byte[] data) {
+                        Log.d(TAG, "onNewData: " + new String(data));
+                    }
+
+                    @Override
+                    public void onRunError(Exception e) {
+                        Log.e(TAG, "onRunError", e);
+                    }
+                });
+                 */
 
                 // 切换指令集，USB默认TSPL指令集，开机后发送一次即可，重启后失效
                 // 切换TSPL模式
                 //printerClass.write(new byte[]{0x1d, 0x49, 0x60, 0x00});
                 // 切换CPCL模式
-                printerClass.write(new byte[]{0x1d, 0x49, 0x60, 0x01});
-                byte[] changeMode = printerClass.read(128, 5 * 1000);
-                Log.d(TAG, "change mode: " + new String(changeMode));
+                usbSerialPort.write(new byte[]{0x1d, 0x49, 0x60, 0x01}, Integer.MAX_VALUE);
+                byte[] buf = new byte[10];
+                int read = usbSerialPort.read(buf, 5 * 1000);
+                byte[] changeMode = new byte[read];
+                System.arraycopy(buf, 0, changeMode, 0, read);
+                Log.d(TAG, "change mode: " + new String(changeMode));// 输出：dbg=1
+                //usbIoManager.writeAsync(new byte[]{0x1d, 0x49, 0x60, 0x01});
 
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream===");
                 Bitmap imageBB = BitmapFactory.decodeStream(getAssets().open("bb.jpeg"));
@@ -131,9 +214,11 @@ public class UsbDemoActivity extends AppCompatActivity {
                 imageTestFloydSteinberg.recycle();
                 // if (cpcl == null) return; // 不会发生
 
+                runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "开始打印", Toast.LENGTH_SHORT).show());
                 // write
                 Log.d(TAG, "testPrint: ===outputStream.write start===");
-                printerClass.write(cpcl);
+                usbSerialPort.write(cpcl, Integer.MAX_VALUE);
+                //usbIoManager.writeAsync(cpcl);
                 Log.d(TAG, "testPrint: ===outputStream.write finish===");
                 Log.d(Thread.currentThread().getName(), "testPrint: write data: " + cpcl.length + " bytes.");
 
@@ -142,7 +227,7 @@ public class UsbDemoActivity extends AppCompatActivity {
                 //Log.d(TAG, "testPrintResult: " + new String(printResult));
 
                 // 关闭USB
-                printerClass.close();
+                usbSerialPort.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }

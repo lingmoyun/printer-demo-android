@@ -10,7 +10,7 @@
 |-----------|:-----:|:----:|-------|
 | Bluetooth |   ✓   |  ✓   | SPP模式 |
 | TCP/IP    |   ✓   |  ✓   |       |
-| USB       |   -   |  ✓   | 待验证   |
+| USB       |   -   |  ✓   |       |
 
 #### 集成步骤
 
@@ -25,7 +25,9 @@ dependencies {
 }
 ```
 
-* 项目使用了 [XXPermissions](https://github.com/getActivity/XXPermissions) 权限框架，如需拷贝示例到自己项目中，请参考它的 [集成步骤](https://github.com/getActivity/XXPermissions/tree/18.2#%E9%9B%86%E6%88%90%E6%AD%A5%E9%AA%A4) ，如果不需要，那么这一步骤请忽略。
+* **蓝牙**Demo使用了 [XXPermissions](https://github.com/getActivity/XXPermissions) 权限框架，如需拷贝示例到自己项目中，请参考它的 [集成步骤](https://github.com/getActivity/XXPermissions/tree/18.2#%E9%9B%86%E6%88%90%E6%AD%A5%E9%AA%A4) ，如果不需要，那么这一步骤请忽略。
+
+* **USB**Demo使用了 [usb-serial-for-android](https://github.com/mik3y/usb-serial-for-android) USB插件，如需拷贝示例到自己项目中，请参考它的 [Quick Start 第1部分](https://github.com/mik3y/usb-serial-for-android#quick-start) ，然后拷贝[`com.lingmoyun.usb.*`](./app/src/main/java/com/lingmoyun/usb)到你项目中，如果不需要，那么这一步骤请忽略。
 
 ## 零墨云旗下打印机Demo汇总
 
