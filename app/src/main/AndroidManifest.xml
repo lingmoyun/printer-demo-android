@@ -49,7 +49,19 @@
         </activity>
         <activity android:name=".BluetoothDemoActivity" />
         <activity android:name=".TcpDemoActivity" />
-        <activity android:name=".UsbDemoActivity" />
+        <activity
+            android:name=".UsbDemoActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
+        </activity>
     </application>
 
 </manifest>

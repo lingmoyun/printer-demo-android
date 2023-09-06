@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <!-- 0xA48C 0xA408 -->
+    <usb-device vendor-id="42124" product-id="41992" />
+    <!-- 0x0483 0x5840 -->
+    <usb-device vendor-id="1155" product-id="22592" />
+</resources>

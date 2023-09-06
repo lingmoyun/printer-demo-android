@@ -44,6 +44,11 @@ public enum LmyUsbPrinter {
     public static final String ACTION_USB_PERMISSION = "com.lingmoyun.USB_PERMISSION";
     public static final Intent INTENT_USB_PERMISSION = new Intent(ACTION_USB_PERMISSION);
     public static final IntentFilter FILTER_USB_PERMISSION = new IntentFilter(ACTION_USB_PERMISSION);
+    public static final IntentFilter FILTER_USB = new IntentFilter();
+    static {
+        FILTER_USB.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        FILTER_USB.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+    }
 
     /**
      * Finds and builds all possible {@link UsbSerialDriver UsbSerialDrivers}

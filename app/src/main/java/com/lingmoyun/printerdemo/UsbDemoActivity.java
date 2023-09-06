@@ -59,6 +59,27 @@ public class UsbDemoActivity extends AppCompatActivity {
             }
         }
     };
+    // USB连接与断开广播接收器
+    // 参考官方文档：https://developer.android.google.cn/guide/topics/connectivity/usb/host?hl=zh_cn#discovering-d
+    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (device != null) {
+
+                }
+                runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "监听到USB打印机已连接", Toast.LENGTH_SHORT).show());
+            } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (device != null) {
+                    // call your method that cleans up and closes communication with the device
+                }
+                runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "监听到USB打印机已断开", Toast.LENGTH_SHORT).show());
+            }
+        }
+    };
 
 
     @Override
@@ -70,6 +91,8 @@ public class UsbDemoActivity extends AppCompatActivity {
 
         // 注册USB权限广播接收器
         registerReceiver(usbPermissionReceiver, LmyUsbPrinter.FILTER_USB_PERMISSION);
+        // 注册USB连接与断开广播接收器
+        registerReceiver(usbReceiver, LmyUsbPrinter.FILTER_USB);
     }
 
     @Override
@@ -77,6 +100,8 @@ public class UsbDemoActivity extends AppCompatActivity {
         super.onDestroy();
         // 取消注册USB权限广播接收器
         unregisterReceiver(usbPermissionReceiver);
+        // 取消注册USB连接与断开广播接收器
+        unregisterReceiver(usbReceiver);
     }
 
     /**
