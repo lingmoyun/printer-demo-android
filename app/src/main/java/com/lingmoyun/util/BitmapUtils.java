@@ -2,8 +2,31 @@ package com.lingmoyun.util;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Matrix;
 
 public class BitmapUtils {
+
+    /**
+     * 等比缩(小)放(大)，防止变形
+     *
+     * @param src    bitmap
+     * @param width  宽
+     * @param height 高
+     * @return bitmap
+     */
+    public static Bitmap scale(Bitmap src, int width, int height) {
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        float widthScale = ((float) width) / w;
+        float heightScale = ((float) height) / h;
+        float scale = Math.min(widthScale, heightScale);
+
+        Matrix matrix = new Matrix();
+        matrix.postScale(scale, scale);
+
+        return Bitmap.createBitmap(src, 0, 0, w, h, matrix, true);
+    }
 
     public static Bitmap floydSteinberg(Bitmap src) {
 

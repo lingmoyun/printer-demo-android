@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context="com.lingmoyun.printerdemo.com.lingmoyun.printerdemo.BluetoothDemoActivity">
+    tools:context=".BluetoothDemoActivity">
 
     <EditText
         android:id="@+id/et_bt_mac"
@@ -37,7 +37,6 @@
             android:layout_weight="1"
             android:text="测试打印" />
     </LinearLayout>
-
 
     <ListView
         android:id="@+id/lv_bt_device"

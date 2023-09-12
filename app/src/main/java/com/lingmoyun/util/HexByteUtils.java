@@ -1,5 +1,7 @@
 package com.lingmoyun.util;
 
+import java.io.UnsupportedEncodingException;
+
 /**
  * Hex Byte相互转换工具.
  *
@@ -7,7 +9,7 @@ package com.lingmoyun.util;
  * @date 2019/10/29 15:29
  */
 public class HexByteUtils {
-    private static final int HEX = 16;
+    private static final int RADIX_HEX = 16;
     public static final String CHARSET_NAME = "gbk";
 
     /**
@@ -42,9 +44,23 @@ public class HexByteUtils {
         byte[] byteArray = new byte[hexStr.length() / 2];
         for (int i = 0; i < byteArray.length; i++) {
             String subStr = hexStr.substring(2 * i, 2 * i + 2);
-            byteArray[i] = ((byte) Integer.parseInt(subStr, HEX));
+            byteArray[i] = ((byte) Integer.parseInt(subStr, RADIX_HEX));
         }
         return byteArray;
+    }
+
+    /**
+     * 二进制数组转换字符串
+     *
+     * @param byteArray 二进制数组
+     * @return 字符串
+     */
+    public static String toString(byte[] byteArray) {
+        try {
+            return new String(byteArray, CHARSET_NAME);
+        } catch (UnsupportedEncodingException ignored) {
+            return new String(byteArray);
+        }
     }
 
 

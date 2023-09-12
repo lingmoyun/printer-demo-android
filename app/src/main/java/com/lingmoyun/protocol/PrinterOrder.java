@@ -1,8 +1,5 @@
 package com.lingmoyun.protocol;
 
-
-import com.lingmoyun.util.HexByteUtils;
-
 import java.io.ByteArrayOutputStream;
 
 public class PrinterOrder {
@@ -39,102 +36,84 @@ public class PrinterOrder {
 
         byte[][] cmd = new byte[2][];
         cmd[0] = baos.toByteArray();// 数据包
-        cmd[1] = new byte[]{0x12, 0x4C, (byte) mode, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};// 结束指令，开始升级
+        cmd[1] = new byte[]{0x12, 0x4C, (byte) mode, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};// 结束指令
         return cmd;
     }
 
     /**
-     * 质检页，等价于打印机上的测试页
+     * 设置Wi-Fi指令
+     *
+     * @param ssid     Wi-Fi SSID
+     * @param password Wi-Fi 密码
+     * @return 指令
      */
-    public static byte[] testPageCmd() {
-        return new byte[]{0x12, 0x54};
+    public static byte[] getSetWiFiOrder(String ssid, String password) {
+        byte[] ssidOrder = getOrder(ConfigKey.WIFI_SSID, ssid);
+        byte[] passwordOrder = getOrder(ConfigKey.WIFI_PSW, password);
+        byte[] saveOrder = getSaveOrder();
+        byte[] powerResetOrder = getPowerResetOrder();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        baos.write(ssidOrder, 0, ssidOrder.length);
+        baos.write(passwordOrder, 0, passwordOrder.length);
+        baos.write(saveOrder, 0, saveOrder.length);
+        baos.write(powerResetOrder, 0, powerResetOrder.length);
+        return baos.toByteArray();
     }
 
-    //设置Wi-Fi SSID指令
-    public static byte[] getSetWifiSsidOrder(String ssid) {
-        return getOrderBytes(ConfigKey.WIFI_SSID, ssid);
-    }
-
-    //设置Wi-Fi密码指令
-    public static byte[] getSetWifiPwdOrder(String pwd) {
-        return getOrderBytes(ConfigKey.WIFI_PSW, pwd);
-    }
-
-    //保存设置指令
+    // 保存设置指令
     public static byte[] getSaveOrder() {
-        //return _getOrderBytes(ConfigAdminKey.reg_value_save);
         // 固定值，直接返回
         //1F57150030020F0000007265675F76616C75655F7361766500
         return new byte[]{31, 87, 21, 0, 48, 2, 15, 0, 0, 0, 114, 101, 103, 95, 118, 97, 108, 117, 101, 95, 115, 97, 118, 101, 0};
     }
 
-    //保存设置指令(hex)
-    public static String getSaveOrderHex() {
-        //return getOrder(ConfigAdminKey.reg_value_save);
-        // 固定值，直接返回
-        return "1F57150030020F0000007265675F76616C75655F7361766500";
-    }
-
-    //重启指令
+    // 重启指令
     public static byte[] getPowerResetOrder() {
-        //return _getOrderBytes(ConfigAdminKey.power_reset);
         // 固定值，直接返回
         //1F57120030020C000000706F7765725F726573657400
         return new byte[]{31, 87, 18, 0, 48, 2, 12, 0, 0, 0, 112, 111, 119, 101, 114, 95, 114, 101, 115, 101, 116, 0};
     }
 
-    //重启指令(hex)
-    public static String getPowerResetOrderHex() {
-        //return getOrder(ConfigAdminKey.power_reset);
+    // 读取信息指令
+    public static byte[] getReadInfoOrder() {
         // 固定值，直接返回
-        return "1F57120030020C000000706F7765725F726573657400";
+        //1F57100030020A000000524541445F494E464F00
+        return new byte[]{0x1F, 0x57, 0x10, 0x00, 0x30, 0x02, 0x0A, 0x00, 0x00, 0x00, 0x52, 0x45, 0x41, 0x44, 0x5F, 0x49, 0x4E, 0x46, 0x4F, 0x00};
     }
 
-    static byte[] getOrderBytes(Enum<?> key) {
-        return HexByteUtils.hexStrToByteArray(getOrder(key));
-    }
-
-    static byte[] getOrderBytes(Enum<?> key, String value) {
-        return HexByteUtils.hexStrToByteArray(getOrder(key, value));
-    }
-
-    //1F57 + 总长度(2字节) + 3001/3002 + key长度(2字节) + value长度(2字节) + key + value
-    public static String getOrder(Enum<?> key) {
-        return getOrder(key, null);
-    }
-
-    //1F57 + 总长度(2字节) + 3001/3002 + key长度(2字节) + value长度(2字节) + key + value
-    public static String getOrder(Enum<?> key, String value) {
-        String type;
-        if (key instanceof ConfigKey) type = "3001";
-        else if (key instanceof ConfigAdminKey) type = "3002";
-        else return null;
-        return getOrder(type, key.name(), value);
-    }
-
-    //1F57 + 总长度(2字节) + 3001 + key长度(2字节) + value长度(2字节) + key + value
-    static String getOrder(String type, String key, String value) {
-        int keyLen = key == null ? 0 : key.getBytes().length + 1;
-        int valueLen = value == null ? 0 : value.getBytes().length + 1;
+    //1F57 + 总长度(2字节) + 3001 + key长度(2字节) + value长度(2字节) + key + 00 + value + 00
+    public static byte[] getOrder(ConfigKey key, String value) {
+        if (key == null || value == null) {
+            throw new NullPointerException("key: " + key + "; value: " + value);
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] keyBytes = key.name().getBytes();
+        int keyLen = keyBytes.length + 1;
+        byte[] valueBytes = value.getBytes();
+        int valueLen = valueBytes.length + 1;
         int totalLen = keyLen + valueLen + 6;
-        final String totalLenHex = _toTwoByteHexLH(totalLen);
-        String keyLenHex = _toTwoByteHexLH(keyLen);
-        String valueLenHex = _toTwoByteHexLH(valueLen);
-        String keyHex = key == null ? "" : (HexByteUtils.byteArrayToHexStr(key.getBytes()) + "00");
-        String valueHex = value == null ? "" : (HexByteUtils.byteArrayToHexStr(value.getBytes()) + "00");
-        return "1F57" + totalLenHex + type + keyLenHex + valueLenHex + keyHex + valueHex;
-    }
 
-    //数字转成2字节的16进制，低位在前，高位在后
-    static String _toTwoByteHexLH(int i) {
-        return String.format("%02x", i & 0x00ff) + String.format("%02x", (i & 0xff00) >> 8);
+        baos.write(0x1f);
+        baos.write(0x57);
+        baos.write(totalLen & 0x00ff); // 总长度(2字节)，低位
+        baos.write((totalLen & 0xff00) >> 8); // 总长度(2字节)，高位
+        baos.write(0x30);
+        baos.write(0x01);
+        baos.write(keyLen & 0x00ff); // key长度(2字节)，低位
+        baos.write((keyLen & 0xff00) >> 8); // key长度(2字节)，高位
+        baos.write(valueLen & 0x00ff); // value长度(2字节)，低位
+        baos.write((valueLen & 0xff00) >> 8); // value长度(2字节)，高位
+        baos.write(keyBytes, 0, keyBytes.length); // key
+        baos.write(0x00); // key end
+        baos.write(valueBytes, 0, valueBytes.length); // value
+        baos.write(0x00); // value end
+        return baos.toByteArray();
     }
 
     /// Key of the config.
     public enum ConfigKey {
         WIFI_SSID, WIFI_PSW,
-        DENSITY, // 浓度 0 1 2 3 4 5 6 7 8 9
     }
 
-    public enum ConfigAdminKey {reg_value_save, power_reset, READ_INFO, PAPER_STUDY}
 }
