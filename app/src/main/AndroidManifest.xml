@@ -48,6 +48,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".BluetoothDemoActivity" />
+        <activity android:name=".BluetoothLEDemoActivity" />
         <activity android:name=".TcpDemoActivity" />
         <activity
             android:name=".UsbDemoActivity"

@@ -13,6 +13,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         findViewById(R.id.btn_test_bt).setOnClickListener(view -> openActivity(BluetoothDemoActivity.class));
+        findViewById(R.id.btn_test_ble).setOnClickListener(view -> openActivity(BluetoothLEDemoActivity.class));
         findViewById(R.id.btn_test_tcp).setOnClickListener(view -> openActivity(TcpDemoActivity.class));
         findViewById(R.id.btn_test_usb).setOnClickListener(view -> openActivity(UsbDemoActivity.class));
 
