@@ -31,6 +31,13 @@ public enum LmyUsbPrinter {
     M4(0x0483, 0x5840),
     A41(0x0483, 0x5840),
     M41(0x0483, 0x5840),
+    /* ===== 分割线 ==================== */
+    A4mini(0x09C5, 0x0668),
+    A4SE(0x09C5, 0x0668),
+    A4LEP(0x09C5, 0x0668),
+    A4LE(0x09C5, 0x0668),
+    A4AirP(0x09C5, 0x0668),
+    A4Air(0x09C5, 0x0668),
     ;
 
     public final int VID;
@@ -71,6 +78,7 @@ public enum LmyUsbPrinter {
         final ProbeTable probeTable = new ProbeTable();
         probeTable.addProduct(A4P.VID, A4P.PID, LmyUsbPrinterDriver.class);
         probeTable.addProduct(A4B.VID, A4B.PID, LmyUsbPrinterDriver.class);
+        probeTable.addProduct(A4mini.VID, A4mini.PID, LmyUsbPrinterDriver.class);
         return probeTable;
     }
 

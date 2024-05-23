@@ -5,4 +5,6 @@
     <usb-device vendor-id="42124" product-id="41992" />
     <!-- 0x0483 0x5840 -->
     <usb-device vendor-id="1155" product-id="22592" />
+    <!-- 0x09C5 0x0668 -->
+    <usb-device vendor-id="2501" product-id="1640" />
 </resources>
