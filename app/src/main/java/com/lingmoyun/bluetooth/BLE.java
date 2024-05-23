@@ -372,7 +372,7 @@ public class BLE {
                     }
 
                     try {
-                        CHARACTERISTIC_WRITE_LOCK.wait(50);
+                        CHARACTERISTIC_WRITE_LOCK.wait(500);
                     } catch (InterruptedException ignored) {
                     }
                 }
