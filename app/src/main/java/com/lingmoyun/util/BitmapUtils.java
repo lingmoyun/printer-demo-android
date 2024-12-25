@@ -7,6 +7,17 @@ import android.graphics.Matrix;
 public class BitmapUtils {
 
     /**
+     * 毫米转像素
+     *
+     * @param mm  毫米
+     * @param dpi DPI
+     * @return 像素
+     */
+    public static int mm2px(int mm, int dpi) {
+        return (int) (mm * dpi / 25.4f);
+    }
+
+    /**
      * 等比缩(小)放(大)，防止变形
      *
      * @param src    bitmap

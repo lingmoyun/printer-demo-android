@@ -40,15 +40,17 @@ public class CPCLExample {
 
         /* =====构建指令================================================================ */
         Log.d(TAG, "testPrint: ===CpclBuilder start===");
+        final int dpi = 203; // 打印机DPI
         //byte[] cpcl = CpclBuilder.createAreaSize(0, 1680, 2374, 1) // Deprecated
         // 灵活构建
         //byte[] cpcl = CpclBuilder.newBuilder()
         //        .area(0, 203, 2374, 1)
         //        .pageWidth(1680) // 可选
         // 快捷构建
-        //byte[] cpcl = CpclBuilder.createArea(0, 300, 2480, 3508, 1) // 300DPI
-        byte[] cpcl = CpclBuilder.createArea(0, 203, 1680, 2374, 1) // 203DPI
+        byte[] cpcl = CpclBuilder.createArea(0, dpi, 2374, 1) // 其中高度填写纸张高度即可
                 // .taskId("1") // 任务ID，部分机型支持，这里传什么，打印结果就会携带什么，如果不需要打印结果注释这一行即可
+                // 固定写法，无需修改
+                .pageWidth(dpi == 203 ? 1728 : 2592)
                 // 文本指令
                 .text(0, 0, 500, 100, "Hello World!")
                 .text(0, 0, 520, 150, "Hello World!")

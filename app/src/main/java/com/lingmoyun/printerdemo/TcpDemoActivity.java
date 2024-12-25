@@ -127,15 +127,18 @@ public class TcpDemoActivity extends AppCompatActivity {
                 }, "tcp-" + address + "-read").start();
 
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream start===");
+                final int dpi = 203; // 打印机DPI
                 Bitmap src = BitmapFactory.decodeStream(getAssets().open("test_a4_300dpi.jpg"));
-                // 缩放到203DPI A4大小 1678*2376
-                Bitmap bitmap = BitmapUtils.scale(src, 1678, 2374);
+                // 缩放到203DPI A4大小 210mm*297mm
+                Bitmap bitmap = BitmapUtils.scale(src, BitmapUtils.mm2px(210, dpi), BitmapUtils.mm2px(297, dpi));
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream finish===");
                 /* =====构建指令================================================================ */
                 Log.d(TAG, "testPrint: ===CpclBuilder start===");
                 /** 构建CPCL 更多用法见{@link CPCLExample#example(Context)} */
-                byte[] cpcl = CpclBuilder.createArea(0, 203, bitmap.getWidth(), bitmap.getHeight(), 1) // 203DPI
+                byte[] cpcl = CpclBuilder.createArea(0, dpi, bitmap.getHeight(), 1) // 其中高度填写纸张高度即可
                         //.taskId("1") // 任务ID，部分机型支持，这里传什么，打印结果就会携带什么，如果不需要打印结果注释这一行即可
+                        // 固定写法，无需修改
+                        .pageWidth(dpi == 203 ? 1728 : 2592)
                         // 推荐：图片指令-压缩，部分机型支持
                         .imageGG(0, 0, bitmap)
                         .formPrint()
