@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
+import com.hoho.android.usbserial.util.SerialInputOutputManager;
 import com.lingmoyun.instruction.cpcl.CpclBuilder;
 import com.lingmoyun.usb.LmyUsbPrinter;
 import com.lingmoyun.util.BitmapUtils;
@@ -64,12 +65,14 @@ public class UsbDemoActivity extends AppCompatActivity {
             String action = intent.getAction();
 
             if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                Log.d(TAG, "BroadcastReceiver: 监听到USB打印机已连接");
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
                 if (device != null) {
 
                 }
                 runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "监听到USB打印机已连接", Toast.LENGTH_SHORT).show());
             } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                Log.d(TAG, "BroadcastReceiver: 监听到USB打印机已断开");
                 UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
                 if (device != null) {
                     // call your method that cleans up and closes communication with the device
@@ -102,6 +105,97 @@ public class UsbDemoActivity extends AppCompatActivity {
         unregisterReceiver(usbReceiver);
     }
 
+    private UsbSerialPort usbSerialPort;
+    private SerialInputOutputManager usbIoManager;
+
+    private boolean connectUsb() throws IOException {
+        if (usbSerialPort != null && usbSerialPort.isOpen()) return true;
+        disconnectUsb();
+
+        UsbManager usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+
+        // Find all available drivers from attached devices.
+        List<UsbSerialDriver> availableDrivers = LmyUsbPrinter.findDrivers(usbManager);
+        if (availableDrivers.isEmpty()) {
+            runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "未发现可用USB打印机", Toast.LENGTH_LONG).show());
+            return false;
+        }
+
+        // Open a connection to the first available driver.
+        UsbSerialDriver driver = availableDrivers.get(0);
+        if (!usbManager.hasPermission(driver.getDevice())) {
+            // add UsbManager.requestPermission(driver.getDevice(), ..) handling here
+            // 参考官方文档：https://developer.android.google.cn/guide/topics/connectivity/usb/host?hl=zh_cn#permission-d
+            PendingIntent pendingIntent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, PendingIntent.FLAG_IMMUTABLE);
+            } else {
+                pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, PendingIntent.FLAG_MUTABLE);
+            }
+            usbManager.requestPermission(driver.getDevice(), pendingIntent);
+
+            // 等待授权结果
+            synchronized (USB_PERMISSION_LOCK) {
+                try {
+                    USB_PERMISSION_LOCK.wait(10 * 1000);// 根据实际情况自行调整超时时间
+                } catch (InterruptedException ignored) {
+                }
+                // 授权广播结果在部分手机上返回false，这里使用UsbManager.hasPermission再次校验权限即可
+                if (!usbManager.hasPermission(driver.getDevice())) {
+                    runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "USB未授权", Toast.LENGTH_LONG).show());
+                    return false;
+                }
+            }
+        }
+        UsbDeviceConnection connection = usbManager.openDevice(driver.getDevice());
+
+        usbSerialPort = driver.getPorts().get(0); // // Most devices have just one usbSerialPort (usbSerialPort 0)
+
+        // 连接USB
+        usbSerialPort.open(connection);
+        Log.d(TAG, "usbSerialPort.open()");
+
+        usbIoManager = new SerialInputOutputManager(usbSerialPort, new SerialInputOutputManager.Listener() {
+            @Override
+            public void onNewData(byte[] data) {
+                Log.d(TAG, "onNewData: " + new String(data));
+            }
+
+            @Override
+            public void onRunError(Exception e) {
+                Log.e(TAG, "onRunError", e);
+                disconnectUsb();
+            }
+        });
+        usbIoManager.setReadTimeout(50);
+        usbIoManager.setReadBufferSize(256);
+        usbIoManager.setWriteBufferSize(2 * 1024 * 1024);
+        usbIoManager.start();
+        Log.d(TAG, "usbIoManager.start()");
+
+        // 切换指令集，USB默认TSPL指令集，开机后发送一次即可，重启后失效
+        // 切换TSPL模式
+        //usbIoManager.writeAsync(new byte[]{0x1d, 0x49, 0x60, 0x00});
+        // 切换CPCL模式
+        usbIoManager.writeAsync(new byte[]{0x1d, 0x49, 0x60, 0x01});
+        Log.d(TAG, "usbIoManager.writeAsync: 0x1d, 0x49, 0x60, 0x01");
+        try {
+            Thread.sleep(3000L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        return true;
+    }
+
+    private void disconnectUsb() {
+        if (usbIoManager != null) {
+            usbIoManager.stop();
+        }
+        usbSerialPort = null;
+        usbIoManager = null;
+    }
+
     /**
      * 测试打印
      * <p>
@@ -113,88 +207,22 @@ public class UsbDemoActivity extends AppCompatActivity {
     private void testPrint() {
         new Thread(() -> {
             try {
-                UsbManager usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-
-                // Find all available drivers from attached devices.
-                List<UsbSerialDriver> availableDrivers = LmyUsbPrinter.findDrivers(usbManager);
-                if (availableDrivers.isEmpty()) {
-                    runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "未发现可用USB打印机", Toast.LENGTH_LONG).show());
-                    return;
-                }
-
-                // Open a connection to the first available driver.
-                UsbSerialDriver driver = availableDrivers.get(0);
-                if (!usbManager.hasPermission(driver.getDevice())) {
-                    // add UsbManager.requestPermission(driver.getDevice(), ..) handling here
-                    // 参考官方文档：https://developer.android.google.cn/guide/topics/connectivity/usb/host?hl=zh_cn#permission-d
-                    PendingIntent pendingIntent;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, PendingIntent.FLAG_IMMUTABLE);
-                    } else {
-                        pendingIntent = PendingIntent.getBroadcast(this, 0, LmyUsbPrinter.INTENT_USB_PERMISSION, 0);
-                    }
-                    usbManager.requestPermission(driver.getDevice(), pendingIntent);
-
-                    // 等待授权结果
-                    synchronized (USB_PERMISSION_LOCK) {
-                        try {
-                            USB_PERMISSION_LOCK.wait(10 * 1000);// 根据实际情况自行调整超时时间
-                        } catch (InterruptedException ignored) {
-                        }
-                        // 授权广播结果在部分手机上返回false，这里使用UsbManager.hasPermission再次校验权限即可
-                        if (!usbManager.hasPermission(driver.getDevice())) {
-                            runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "USB未授权", Toast.LENGTH_LONG).show());
-                            return;
-                        }
-                    }
-                }
-                UsbDeviceConnection connection = usbManager.openDevice(driver.getDevice());
-
-                UsbSerialPort usbSerialPort = driver.getPorts().get(0); // // Most devices have just one usbSerialPort (usbSerialPort 0)
-
-                if (usbSerialPort.isOpen()) {
-                    usbSerialPort.close();
-                }
                 // 连接USB
-                usbSerialPort.open(connection);
-
-                /*
-                SerialInputOutputManager usbIoManager = new SerialInputOutputManager(usbSerialPort, new SerialInputOutputManager.Listener() {
-                    @Override
-                    public void onNewData(byte[] data) {
-                        Log.d(TAG, "onNewData: " + new String(data));
-                    }
-
-                    @Override
-                    public void onRunError(Exception e) {
-                        Log.e(TAG, "onRunError", e);
-                    }
-                });
-                 */
-
-                // 切换指令集，USB默认TSPL指令集，开机后发送一次即可，重启后失效
-                // 切换TSPL模式
-                //printerClass.write(new byte[]{0x1d, 0x49, 0x60, 0x00});
-                // 切换CPCL模式
-                usbSerialPort.write(new byte[]{0x1d, 0x49, 0x60, 0x01}, Integer.MAX_VALUE);
-                byte[] buf = new byte[10];
-                int read = usbSerialPort.read(buf, 5 * 1000);
-                byte[] changeMode = new byte[read];
-                System.arraycopy(buf, 0, changeMode, 0, read);
-                Log.d(TAG, "change mode: " + new String(changeMode));// 输出：dbg=1
-                //usbIoManager.writeAsync(new byte[]{0x1d, 0x49, 0x60, 0x01});
+                if (!connectUsb()) return;
 
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream start===");
                 final int dpi = 203; // 打印机DPI
-                Bitmap src = BitmapFactory.decodeStream(getAssets().open("test_a4_300dpi.jpg"));
+                //Bitmap src = BitmapFactory.decodeStream(getAssets().open("test_a4_300dpi.jpg"));
+                Bitmap src = BitmapFactory.decodeStream(getAssets().open("wf.png"));
                 // 缩放到203DPI A4大小 1678*2376
-                Bitmap bitmap = BitmapUtils.scale(src, BitmapUtils.mm2px(210, dpi), BitmapUtils.mm2px(297, dpi));
+                //Bitmap bitmap = BitmapUtils.scale(src, BitmapUtils.mm2px(210, dpi), BitmapUtils.mm2px(297, dpi));
+                Bitmap bitmap = BitmapUtils.scale(src, BitmapUtils.mm2px(100, dpi), BitmapUtils.mm2px(100, dpi));
                 Log.d(TAG, "testPrint: ===BitmapFactory.decodeStream finish===");
                 /* =====构建指令================================================================ */
                 Log.d(TAG, "testPrint: ===CpclBuilder start===");
                 /** 构建CPCL 更多用法见{@link CPCLExample#example(Context)} */
                 byte[] cpcl = CpclBuilder.createArea(0, dpi, bitmap.getHeight(), 1) // 其中高度填写纸张高度即可
-                        //.taskId("1") // 任务ID，部分机型支持，这里传什么，打印结果就会携带什么，如果不需要打印结果注释这一行即可
+                        .taskId("1") // 任务ID，部分机型支持，这里传什么，打印结果就会携带什么，如果不需要打印结果注释这一行即可
                         // 固定写法，无需修改
                         .pageWidth(dpi == 203 ? 1728 : 2592)
                         // 推荐：图片指令-压缩，部分机型支持
@@ -211,19 +239,12 @@ public class UsbDemoActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(UsbDemoActivity.this, "开始打印", Toast.LENGTH_SHORT).show());
                 // write
                 Log.d(TAG, "testPrint: ===outputStream.write start===");
-                usbSerialPort.write(cpcl, Integer.MAX_VALUE);
-                //usbIoManager.writeAsync(cpcl);
-                Log.d(TAG, "testPrint: ===outputStream.write finish===");
-                Log.d(Thread.currentThread().getName(), "testPrint: write data: " + cpcl.length + " bytes.");
-
-                // read 读取打印结果
-                //buf = new byte[128];
-                //read =  usbSerialPort.read(buf, 5 * 1000);
-                //byte[] printResult = new byte[read];
-                //Log.d(TAG, "testPrintResult: " + new String(printResult));
+                usbIoManager.writeAsync(cpcl);
+                //Log.d(TAG, "testPrint: ===outputStream.write finish===");
+                Log.d(TAG, "testPrint: write data: " + cpcl.length + " bytes.");
 
                 // 关闭USB
-                usbSerialPort.close();
+                //disconnectUsb();
             } catch (IOException e) {
                 e.printStackTrace();
             }
